@@ -19,7 +19,7 @@ R = 1       # resistance
 C = 1.44    # capacitance
 batch_size = 500
 tau = R * C
-num_inputs = 4 # temp, audio, humidity, co2, lat, long
+num_inputs = 4 # temp, audio, humidity, co2
 num_outputs = 2 # fire detected / not detected
 num_hidden1 = 500
 num_hidden2 = 500
@@ -87,11 +87,6 @@ def gen_dry_data():
             # CO2 (ppm)
             co2 = round(random.uniform(1200, 5000), 2)
             
-            # Coordinates (°)
-            lat = round(random.uniform(25, 50), 2)
-            
-            long = round(random.uniform(-125,-110), 2)
-            
             label = 1
 
         else:
@@ -109,21 +104,16 @@ def gen_dry_data():
             # CO2 (ppm)
             co2 = round(random.uniform(420, 1300), 2)
             
-            # Coordinates (°)
-            lat = round(random.uniform(35, 70), 2)
-            
-            long = round(random.uniform(-120,-60), 2)
-            
             label = 0
 
         # Order: Temp, Audio, Humidity, CO2, Fire Label
-        row = [temp, audio, humid, co2, lat, long, label]
+        row = [temp, audio, humid, co2, label]
         all_data.append(row)
 
     # Write all rows at once
     with open('firetest_data.csv', 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["Temp", "Audio", "Humidity", "CO2", "LATITUDE", "LONGITUDE", "Fire"])  # Add header
+        writer.writerow(["Temp", "Audio", "Humidity", "CO2", "Fire"])  # Add header
         writer.writerows(all_data)
 
     print(f"Written {fire_count + nofire_count} rows to firetest_data.csv")
