@@ -77,15 +77,20 @@ def gen_dry_data():
 
             # Temperature (°C)
             temp = round(random.uniform(35, 90), 2)
+            temp+= random.gauss(0, 2.5)
+            
 
             # Audio (normalized loudness)
-            audio = round(random.uniform(0.40, 1.00), 3)
+            audio = round(random.uniform(0.15, 1.00), 3)
+            audio += random.gauss(0, 0.07)
             
             # Humidity (%)
             humid = round(random.uniform(5, 35), 2)
+            humid += random.gauss(0, 6.0)
             
             # CO2 (ppm)
-            co2 = round(random.uniform(1200, 5000), 2)
+            co2 = round(random.uniform(800, 5000), 2)
+            co2 += random.gauss(0, 250.0)
             
             label = 1
 
@@ -94,15 +99,19 @@ def gen_dry_data():
             
             # Temperature (°C)
             temp = round(random.uniform(10, 45), 2)
+            temp+= random.gauss(0, 2.5)
             
             # Audio (normalized loudness)
-            audio = round(random.uniform(0.00, 0.50), 3)
+            audio = round(random.uniform(0.00, 0.85), 3)
+            audio += random.gauss(0, 0.07)
             
             # Humidity (%)
             humid = round(random.uniform(15, 70), 2)
+            humid += random.gauss(0, 6.0)
             
             # CO2 (ppm)
-            co2 = round(random.uniform(420, 1300), 2)
+            co2 = round(random.uniform(420, 2500), 2)
+            co2 += random.gauss(0, 250.0)
             
             label = 0
 
@@ -119,3 +128,5 @@ def gen_dry_data():
     print(f"Written {fire_count + nofire_count} rows to firetest_data.csv")
     print(f"Fire rows: {fire_count}")
     print(f"No-fire rows: {nofire_count}")
+
+gen_dry_data()
