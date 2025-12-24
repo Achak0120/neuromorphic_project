@@ -196,5 +196,3 @@ def gen_val_data():
     print(f"Written {fire_count + nofire_count} rows to firedata_validation.csv")
     print(f"Fire rows: {fire_count}")
     print(f"No-fire rows: {nofire_count}")
-
-gen_val_data()
