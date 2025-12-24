@@ -129,4 +129,72 @@ def gen_dry_data():
     print(f"Fire rows: {fire_count}")
     print(f"No-fire rows: {nofire_count}")
 
-gen_dry_data()
+def gen_val_data():
+    # Final clean dataset list
+    all_data = []
+    fire_count = 0
+    nofire_count = 0
+    
+    for i in range(30000):
+
+        fire = bool(random.randint(0, 1))  # Random class generator
+        row = []
+
+        if fire:
+            fire_count += 1
+
+            # Temperature (°C)
+            temp = round(random.uniform(35, 90), 2)
+            temp+= random.gauss(0, 2.5)
+            
+
+            # Audio (normalized loudness)
+            audio = round(random.uniform(0.15, 1.00), 3)
+            audio += random.gauss(0, 0.07)
+            
+            # Humidity (%)
+            humid = round(random.uniform(5, 35), 2)
+            humid += random.gauss(0, 6.0)
+            
+            # CO2 (ppm)
+            co2 = round(random.uniform(800, 5000), 2)
+            co2 += random.gauss(0, 250.0)
+            
+            label = 1
+
+        else:
+            nofire_count += 1
+            
+            # Temperature (°C)
+            temp = round(random.uniform(10, 45), 2)
+            temp+= random.gauss(0, 2.5)
+            
+            # Audio (normalized loudness)
+            audio = round(random.uniform(0.00, 0.85), 3)
+            audio += random.gauss(0, 0.07)
+            
+            # Humidity (%)
+            humid = round(random.uniform(15, 70), 2)
+            humid += random.gauss(0, 6.0)
+            
+            # CO2 (ppm)
+            co2 = round(random.uniform(420, 2500), 2)
+            co2 += random.gauss(0, 250.0)
+            
+            label = 0
+
+        # Order: Temp, Audio, Humidity, CO2, Fire Label
+        row = [temp, audio, humid, co2, label]
+        all_data.append(row)
+
+    # Write all rows at once
+    with open('firedata_validation.csv', 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["Temp", "Audio", "Humidity", "CO2", "Fire"])  # Add header
+        writer.writerows(all_data)
+
+    print(f"Written {fire_count + nofire_count} rows to firedata_validation.csv")
+    print(f"Fire rows: {fire_count}")
+    print(f"No-fire rows: {nofire_count}")
+
+gen_val_data()
