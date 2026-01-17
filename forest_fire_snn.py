@@ -14,7 +14,7 @@ import csv
 # Small-SNN(500 Neurons) - LIF Model ("takes the sum of weighted inputs, much like the artificial neuron. But rather than passing it directly to an activation function, it will integrate the input over time with a leakage, much like an RC circuit. If the integrated value exceeds a threshold, then the LIF neuron will emit a voltage spike."" - snnTorch Docs 2.1")
 # Lapicque's Model
 
-beta = 0.5  # leak factor
+beta = 0.7  # leak factor (try increasing to around 0.7 or 0.9 to improve confidence)
 R = 1       # resistance
 C = 1.44    # capacitance
 batch_size = 500
@@ -144,7 +144,7 @@ def gen_val_data():
             fire_count += 1
 
             # Temperature (°C)
-            temp = round(random.uniform(35, 90), 2)
+            temp = round(random.uniform(40, 90), 2)
             temp+= random.gauss(0, 2.5)
             
 
@@ -153,11 +153,11 @@ def gen_val_data():
             audio += random.gauss(0, 0.07)
             
             # Humidity (%)
-            humid = round(random.uniform(5, 35), 2)
+            humid = round(random.uniform(5, 20), 2)
             humid += random.gauss(0, 6.0)
             
             # CO2 (ppm)
-            co2 = round(random.uniform(800, 5000), 2)
+            co2 = round(random.uniform(1500, 5000), 2)
             co2 += random.gauss(0, 250.0)
             
             label = 1
@@ -170,15 +170,15 @@ def gen_val_data():
             temp+= random.gauss(0, 2.5)
             
             # Audio (normalized loudness)
-            audio = round(random.uniform(0.00, 0.85), 3)
+            audio = round(random.uniform(0.00, 0.3), 3)
             audio += random.gauss(0, 0.07)
             
             # Humidity (%)
-            humid = round(random.uniform(15, 70), 2)
+            humid = round(random.uniform(40, 70), 2)
             humid += random.gauss(0, 6.0)
             
             # CO2 (ppm)
-            co2 = round(random.uniform(420, 2500), 2)
+            co2 = round(random.uniform(420, 1000), 2)
             co2 += random.gauss(0, 250.0)
             
             label = 0
