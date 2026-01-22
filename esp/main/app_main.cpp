@@ -8,18 +8,18 @@
 
 static const char *TAG = "FIRE_SNN";
 
-// ---- Model config (matches your training) ----
+// Model config
 static constexpr uint32_t TIMESTEPS = 35;               // training.ipynb uses num_steps = 35
 static constexpr int32_t MARGIN_FOR_EARLY_DECISION = 3; // spike count margin used to estimate "decision time"
 
-// ---- Embedded binaries (from CMake EMBED_FILES) ----
+// Embedded binaries (from CMake EMBED_FILES)
 extern const uint8_t snn_weights_bin_start[] asm("_binary_snn_weights_bin_start");
 extern const uint8_t snn_weights_bin_end[] asm("_binary_snn_weights_bin_end");
 
 extern const uint8_t replay_data_bin_start[] asm("_binary_replay_data_bin_start");
 extern const uint8_t replay_data_bin_end[] asm("_binary_replay_data_bin_end");
 
-// ---- Tiny RNG for Bernoulli spike generation (deterministic per sample) ----
+// Tiny RNG for Bernoulli spike generation (deterministic per sample)
 struct XorShift32
 {
     uint32_t state;
@@ -49,7 +49,7 @@ static inline float bernoulli_spike(float p, XorShift32 *rng)
     return (rng->next_f01() < p) ? 1.0f : 0.0f;
 }
 
-// ---- Packed binary formats ----
+// Packed binary formats
 #pragma pack(push, 1)
 struct WeightsHeader
 {
@@ -147,7 +147,7 @@ static bool load_weights(ModelWeights *mw)
         return false;
     }
 
-    // Assume 4-byte alignment (ESP-IDF embed generally provides this). If not, copy later.
+    // Assume 4-byte alignment (ESP-IDF embed generally provides this)
     mw->fc1_w = (const float *)p;
     p += fc1_w_n * sizeof(float);
     mw->fc1_b = (const float *)p;
@@ -207,7 +207,7 @@ static bool load_replay(ReplayData *rd)
     return true;
 }
 
-// ---- Dense layer (row-major W[out][in]) ----
+// Dense layer (row-major W[out][in])
 static inline void dense(const float *W, const float *b,
                          const float *x, float *y,
                          uint32_t out_dim, uint32_t in_dim)
@@ -222,7 +222,7 @@ static inline void dense(const float *W, const float *b,
     }
 }
 
-// ---- Leaky Integrate-and-Fire step (reset by subtract threshold on spike) ----
+// Leaky Integrate-and-Fire step (reset by subtract threshold on spike)
 static inline float lif_step(float cur, float *mem, float beta, float thr)
 {
     float m = beta * (*mem) + cur;
