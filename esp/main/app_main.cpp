@@ -9,11 +9,14 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 
+#include "esp_task_wdt.h"
+#include "esp_err.h"
+
 static const char *TAG = "FIRE_SNN";
 
 // Model config
-static constexpr uint32_t TIMESTEPS = 35;               // training uses num_steps = 35
-static constexpr int32_t MARGIN_FOR_EARLY_DECISION = 3; // spike margin for early decision estimate
+static constexpr uint32_t TIMESTEPS = 35;               // training.ipynb uses num_steps = 35
+static constexpr int32_t MARGIN_FOR_EARLY_DECISION = 3; // spike count margin used to estimate "decision time"
 
 // Embedded binaries (from CMake EMBED_FILES)
 extern const uint8_t snn_weights_bin_start[] asm("_binary_snn_weights_bin_start");
@@ -62,7 +65,7 @@ struct WeightsHeader
     uint32_t out_dim;
     float beta;
     float thr;
-    // Followed by float32 blobs in order:
+    // Followed by float32 blobs in this exact order:
     // fc1_w (h1*in_dim), fc1_b (h1),
     // fc2_w (h2*h1),    fc2_b (h2),
     // fco_w (out_dim*h2), fco_b (out_dim)
@@ -109,7 +112,6 @@ static bool load_weights(ModelWeights *mw)
         ESP_LOGE(TAG, "Weights blob too small: %u bytes", (unsigned)len);
         return false;
     }
-
     WeightsHeader hdr;
     memcpy(&hdr, start, sizeof(hdr));
     if (memcmp(hdr.magic, "SNNW", 4) != 0)
@@ -179,7 +181,6 @@ static bool load_replay(ReplayData *rd)
         ESP_LOGE(TAG, "Replay blob too small: %u bytes", (unsigned)len);
         return false;
     }
-
     DataHeader hdr;
     memcpy(&hdr, start, sizeof(hdr));
     if (memcmp(hdr.magic, "DATA", 4) != 0)
@@ -187,7 +188,6 @@ static bool load_replay(ReplayData *rd)
         ESP_LOGE(TAG, "Bad replay magic");
         return false;
     }
-
     rd->n_samples = hdr.n_samples;
     rd->n_features = hdr.n_features;
 
@@ -202,7 +202,6 @@ static bool load_replay(ReplayData *rd)
         ESP_LOGE(TAG, "Replay blob truncated");
         return false;
     }
-
     rd->x = (const float *)p;
     p += feat_bytes;
     rd->y = (const uint8_t *)p;
@@ -226,7 +225,7 @@ static inline void dense(const float *W, const float *b,
     }
 }
 
-// LIF step (subtract-threshold reset)
+// Leaky Integrate-and-Fire step (reset by subtract threshold on spike)
 static inline float lif_step(float cur, float *mem, float beta, float thr)
 {
     float m = beta * (*mem) + cur;
@@ -237,60 +236,62 @@ static inline float lif_step(float cur, float *mem, float beta, float thr)
     return spk;
 }
 
-// --- Static buffers (keep off stack) ---
-static float mem1[500];
-static float mem2[500];
-static float mem3[2];
-
-static float in_spk[4];
-static float cur1[500];
-static float spk1[500];
-static float cur2[500];
-static float spk2[500];
-static float cur3[2];
-static float spk3[2];
-
-static void infer_task(void *arg)
+extern "C" void app_main(void)
 {
+    // Disable Task Watchdog for long benchmarking runs (stops IDLE0 WDT spam)
+    esp_err_t wdt_ret = esp_task_wdt_deinit();
+    if (wdt_ret == ESP_OK)
+        ESP_LOGW(TAG, "Task Watchdog disabled (benchmark mode).");
+    else
+        ESP_LOGW(TAG, "Task Watchdog deinit returned: %s", esp_err_to_name(wdt_ret));
+
     ModelWeights mw;
     ReplayData rd;
 
     if (!load_weights(&mw) || !load_replay(&rd))
     {
         ESP_LOGE(TAG, "Failed to load embedded model/data.");
-        vTaskDelete(NULL);
-        return;
+        while (true)
+            vTaskDelay(pdMS_TO_TICKS(1000));
     }
+
     if (rd.n_features != mw.in_dim)
     {
         ESP_LOGE(TAG, "Replay features (%u) != model input dim (%u)",
                  (unsigned)rd.n_features, (unsigned)mw.in_dim);
-        vTaskDelete(NULL);
-        return;
+        while (true)
+            vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    // If you ever embed a different model, these arrays are sized for 4-500-500-2.
+    // Activations / states (static to avoid stack overflow)
+    static float mem1[500];
+    static float mem2[500];
+    static float mem3[2];
+
+    static float in_spk[4];
+    static float cur1[500];
+    static float spk1[500];
+    static float cur2[500];
+    static float spk2[500];
+    static float cur3[2];
+    static float spk3[2];
+
     if (mw.in_dim != 4 || mw.h1 != 500 || mw.h2 != 500 || mw.out_dim != 2)
     {
-        ESP_LOGE(TAG, "Expected model dims 4-500-500-2, got %u-%u-%u-%u",
+        ESP_LOGW(TAG, "Expected 4-500-500-2, got %u-%u-%u-%u",
                  (unsigned)mw.in_dim, (unsigned)mw.h1, (unsigned)mw.h2, (unsigned)mw.out_dim);
-        vTaskDelete(NULL);
-        return;
     }
 
-    ESP_LOGI(TAG, "Starting CONTINUOUS replay streaming...");
-    ESP_LOGI(TAG, "Tip: quit monitor with Ctrl+]  (or Ctrl+T then Ctrl+H for help)");
-
-    uint32_t idx = 0;
-
-    // Running stats (optional)
     uint32_t TP = 0, TN = 0, FP = 0, FN = 0;
-    uint32_t printed = 0;
     double total_ms = 0.0;
+    double total_decision_step = 0.0;
+    uint32_t decision_step_count = 0;
 
-    while (true)
+    const uint32_t N = rd.n_samples;
+    ESP_LOGI(TAG, "Starting replay inference: %u samples", (unsigned)N);
+
+    for (uint32_t n = 0; n < N; n++)
     {
-        // Reset neuron states
         memset(mem1, 0, sizeof(mem1));
         memset(mem2, 0, sizeof(mem2));
         memset(mem3, 0, sizeof(mem3));
@@ -298,22 +299,18 @@ static void infer_task(void *arg)
         int out_count[2] = {0, 0};
         int diff_by_step[TIMESTEPS] = {0};
 
-        // Deterministic RNG per sample index
         XorShift32 rng;
-        rng.state = 0xC0FFEEu ^ (idx * 2654435761u);
+        rng.state = 0xC0FFEEu ^ (n * 2654435761u);
 
-        const float *x = rd.x + (size_t)idx * (size_t)rd.n_features;
-        uint8_t y = rd.y[idx];
+        const float *x = rd.x + (size_t)n * (size_t)rd.n_features;
+        uint8_t y = rd.y[n];
 
         int64_t t0 = esp_timer_get_time();
 
         for (uint32_t t = 0; t < TIMESTEPS; t++)
         {
-            // Bernoulli spikes from probabilities
             for (uint32_t j = 0; j < mw.in_dim; j++)
-            {
                 in_spk[j] = bernoulli_spike(x[j], &rng);
-            }
 
             dense(mw.fc1_w, mw.fc1_b, in_spk, cur1, mw.h1, mw.in_dim);
             for (uint32_t i = 0; i < mw.h1; i++)
@@ -331,6 +328,10 @@ static void infer_task(void *arg)
             }
 
             diff_by_step[t] = out_count[1] - out_count[0];
+
+            // Yield sometimes so the scheduler/USB/etc can run
+            if ((t & 3) == 3)
+                vTaskDelay(1); // every 4 timesteps
         }
 
         int64_t t1 = esp_timer_get_time();
@@ -339,7 +340,6 @@ static void infer_task(void *arg)
 
         int pred = (out_count[1] > out_count[0]) ? 1 : 0;
 
-        // Decision step estimate
         int final_sign = (pred == 1) ? 1 : -1;
         int decision_step = -1;
         for (uint32_t t = 0; t < TIMESTEPS; t++)
@@ -351,51 +351,59 @@ static void infer_task(void *arg)
                 break;
             }
         }
+        if (decision_step >= 0)
+        {
+            total_decision_step += (double)decision_step;
+            decision_step_count++;
+        }
 
-        // Update confusion matrix
         if (y == 1 && pred == 1)
             TP++;
         else if (y == 0 && pred == 0)
             TN++;
         else if (y == 0 && pred == 1)
             FP++;
-        else if (y == 1 && pred == 0)
+        else
             FN++;
 
-        // Print every sample for now (you can change this to every N if spammy)
-        int diff = out_count[1] - out_count[0];
-        ESP_LOGI(TAG, "idx=%u y=%u pred=%d diff=%d spikes=[%d,%d] time=%.2fms decision_step=%d",
-                 (unsigned)idx, (unsigned)y, pred, diff, out_count[0], out_count[1], ms, decision_step);
-
-        printed++;
-        if (printed % 20 == 0)
+        if (n < 10)
         {
-            uint32_t total = TP + TN + FP + FN;
-            double acc = (total > 0) ? (double)(TP + TN) / (double)total : 0.0;
-            double avg = (printed > 0) ? total_ms / (double)printed : 0.0;
-            ESP_LOGI(TAG, "RUNNING: n=%u acc=%.3f TP=%u TN=%u FP=%u FN=%u avg_ms=%.2f",
-                     (unsigned)total, acc, (unsigned)TP, (unsigned)TN, (unsigned)FP, (unsigned)FN, avg);
+            ESP_LOGI(TAG, "n=%u y=%u pred=%d spikes=[%d,%d] time=%.2fms decision_step=%d",
+                     (unsigned)n, (unsigned)y, pred, out_count[0], out_count[1], ms, decision_step);
         }
 
-        // next sample
-        idx++;
-        if (idx >= rd.n_samples)
-            idx = 0;
+        if ((n % 25) == 24)
+        {
+            double avg_so_far = total_ms / (double)(n + 1);
+            ESP_LOGI(TAG, "Progress: %u/%u (%.1f%%) avg=%.2fms/sample",
+                     (unsigned)(n + 1), (unsigned)N,
+                     100.0 * (double)(n + 1) / (double)N,
+                     avg_so_far);
+        }
 
-        // yield so idle tasks run (prevents task watchdog triggers)
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(1);
     }
-}
 
-extern "C" void app_main(void)
-{
-    // Put inference in its own task so app_main can return cleanly.
-    // Stack can be modest since large buffers are static.
-    xTaskCreate(
-        infer_task,
-        "infer_task",
-        8192,
-        NULL,
-        5,
-        NULL);
+    uint32_t total = TP + TN + FP + FN;
+    double acc = (total > 0) ? (double)(TP + TN) / (double)total : 0.0;
+    double tpr = (TP + FN > 0) ? (double)TP / (double)(TP + FN) : 0.0;
+    double fpr = (FP + TN > 0) ? (double)FP / (double)(FP + TN) : 0.0;
+    double precision = (TP + FP > 0) ? (double)TP / (double)(TP + FP) : 0.0;
+    double avg_ms = (N > 0) ? total_ms / (double)N : 0.0;
+    double avg_decision_step = (decision_step_count > 0) ? total_decision_step / (double)decision_step_count : -1.0;
+
+    ESP_LOGI(TAG, "=== On-device replay results ===");
+    ESP_LOGI(TAG, "Samples=%u  Acc=%.3f  Precision=%.3f  Recall(TPR)=%.3f  FPR=%.3f",
+             (unsigned)total, acc, precision, tpr, fpr);
+    ESP_LOGI(TAG, "Confusion: TP=%u TN=%u FP=%u FN=%u",
+             (unsigned)TP, (unsigned)TN, (unsigned)FP, (unsigned)FN);
+    ESP_LOGI(TAG, "Avg inference time per sample: %.2f ms (T=%u steps)",
+             avg_ms, (unsigned)TIMESTEPS);
+    ESP_LOGI(TAG, "Avg decision step (margin=%d): %.2f (computed on %u/%u samples)",
+             MARGIN_FOR_EARLY_DECISION, avg_decision_step,
+             (unsigned)decision_step_count, (unsigned)N);
+
+    ESP_LOGI(TAG, "DONE. Idling forever. (Quit monitor with Ctrl+])");
+    while (true)
+        vTaskDelay(pdMS_TO_TICKS(1000));
 }
