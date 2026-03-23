@@ -10,7 +10,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
-OUT = "/mnt/user-data/outputs"
+OUT = "c:\\Users\\achak\\OneDrive\\Desktop\\neuromorphic\\neuromorphic_project\\visual_graphs\\figure3"
 
 COLORS = ["#2563EB", "#DC2626", "#16A34A", "#6B7280"]
 

@@ -9,7 +9,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
-OUT = "/mnt/user-data/outputs"
+OUT = "c:\\Users\\achak\\OneDrive\\Desktop\\neuromorphic\\neuromorphic_project\\visual_graphs\\figure3"
 
 COLORS = ["#16A34A", "#2563EB", "#EA580C", "#7C3AED"]
 
@@ -45,7 +45,7 @@ def plot_embedded_metrics(save_path: str = f"{OUT}/figure_3b_embedded_metrics.pn
             ha="center", va="bottom", fontsize=10.5, fontweight="bold",
         )
 
-    ax.set_ylim(0.970, 1.005)
+    ax.set_ylim(0.970, 1.000)
     ax.set_ylabel("Score")
     ax.set_title(
         "Classification Metrics — ESP32-S3 Embedded Inference\n(Replay dataset, n = 1,024 samples)",

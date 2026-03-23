@@ -10,8 +10,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
-BASE = "/home/claude/neuromorphic_project/neuromorphic_project-main/one_node_sim"
-OUT  = "/mnt/user-data/outputs"
+BASE = "c:\\Users\\achak\\OneDrive\\Desktop\\neuromorphic\\neuromorphic_project\\one_node_sim"
+OUT  = "c:\\Users\\achak\\OneDrive\\Desktop\\neuromorphic\\neuromorphic_project\\visual_graphs\\figure2"
 
 COLORS = ["#2563EB", "#16A34A", "#EA580C", "#DC2626"]
 

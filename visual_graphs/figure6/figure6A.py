@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 
-OUT = "/mnt/user-data/outputs"
+OUT = "c:\\Users\\achak\\OneDrive\\Desktop\\neuromorphic\\neuromorphic_project\\visual_graphs\\figure6"
 
 BLUE   = "#2563EB"
 PURPLE = "#7C3AED"
@@ -23,7 +23,7 @@ GRAY   = "#6B7280"
 def plot_pipeline_architecture(save_path: str = f"{OUT}/figure_6_pipeline_architecture.png"):
     plt.rcParams.update({
         "font.family":       "DejaVu Sans",
-        "axes.titlesize":    13,
+        "axes.titlesize":    15,
         "figure.dpi":        150,
         "savefig.dpi":       300,
         "savefig.bbox":      "tight",
@@ -31,7 +31,7 @@ def plot_pipeline_architecture(save_path: str = f"{OUT}/figure_6_pipeline_archit
     })
 
     fig, ax = plt.subplots(figsize=(14, 4.5))
-    ax.set_xlim(0, 14)
+    ax.set_xlim(-0.2, 14)
     ax.set_ylim(0, 4.2)
     ax.axis("off")
 
@@ -39,21 +39,21 @@ def plot_pipeline_architecture(save_path: str = f"{OUT}/figure_6_pipeline_archit
         "End-to-End Neuromorphic Pipeline:  Train → Simulate → Deploy",
         fontweight="bold", pad=12, fontsize=13,
     )
-
+    dx = 1
     stages = [
-        (1.0,  "① Data\nGeneration",
+        (1.0 + dx,  "① Data\nGeneration",
          "100 K synthetic samples\nTemp · Audio\nHumidity · CO₂\n(Gaussian noise added)",
          BLUE),
-        (3.5,  "② SNN\nTraining",
+        (3.5 + dx,  "② SNN\nTraining",
          "snnTorch / PyTorch\nLIF neurons  β = 0.7\nSurrogate gradient\n4 → 500 → 500 → 2",
          PURPLE),
-        (6.0,  "③ Offline\nValidation",
+        (6.0 + dx,  "③ Offline\nValidation",
          "30 K held-out samples\nAccuracy = 93.77%\nFPR ≈ 0.00%\nFNR = 12.56%",
          GREEN),
-        (8.5,  "④ Fire-Spread\nSimulation",
+        (8.5 + dx,  "④ Fire-Spread\nSimulation",
          "Grid-based spread model\nAdaptive thresholding\nDetection rate = 86%\nMean latency = 7.35 min",
          ORANGE),
-        (11.0, "⑤ ESP32-S3\nDeployment",
+        (11.0 + dx, "⑤ ESP32-S3\nDeployment",
          "Float32 weights · 1.02 MB\nAccuracy = 99.0%\n2.44 s / sample\n35-step LIF forward pass",
          RED),
     ]

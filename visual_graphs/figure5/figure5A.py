@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 
-BASE = "/home/claude/neuromorphic_project/neuromorphic_project-main"
-OUT  = "/mnt/user-data/outputs"
+BASE = "c:\\Users\\achak\\OneDrive\\Desktop\\neuromorphic\\neuromorphic_project"
+OUT  = "c:\\Users\\achak\\OneDrive\\Desktop\\neuromorphic\\neuromorphic_project\\visual_graphs\\figure5"
 
 BLUE = "#2563EB"
 RED  = "#DC2626"

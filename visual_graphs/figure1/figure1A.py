@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import ConfusionMatrixDisplay
 
 
-BASE = "/home/claude/neuromorphic_project/neuromorphic_project-main"
-OUT  = "/mnt/user-data/outputs"
+BASE = "c:\\Users\\achak\\OneDrive\\Desktop\\neuromorphic\\neuromorphic_project"
+OUT  = "c:\\Users\\achak\\OneDrive\\Desktop\\neuromorphic\\neuromorphic_project\\visual_graphs\\figure1"
 
 GRAY  = "#6B7280"
 GREEN = "#16A34A"
